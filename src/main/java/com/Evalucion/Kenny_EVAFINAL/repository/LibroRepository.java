@@ -27,19 +27,22 @@ public interface LibroRepository extends JpaRepository<Libro, Long>, JpaSpecific
     /**
      * Bloqueo pesado (SELECT ... FOR UPDATE) sobre un libro no eliminado.
      *
-     * <p>Se usa en el registro de prestamos y devoluciones para serializar el acceso
-     * al stock frente a solicitudes simultaneas: dos transacciones no pueden leer y
-     * decrementar/incrementar el mismo libro a la vez, lo que impide stock negativo
-     * o el prestamo doble del ultimo ejemplar. Se complementa con {@code @Version}
-     * en la entidad como defensa en profundidad.</p>
+     * <p>Se usa en el registro de prestamos para serializar el acceso al stock frente
+     * a solicitudes simultaneas: dos transacciones no pueden leer y decrementar el
+     * mismo libro a la vez, lo que impide stock negativo o el prestamo doble del
+     * ultimo ejemplar. Se complementa con {@code @Version} en la entidad como
+     * defensa en profundidad.</p>
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select l from Libro l where l.id = :id and l.eliminado = false")
     Optional<Libro> findActivoByIdWithLock(@Param("id") Long id);
 
     /**
-     * Lectura sin bloqueo para el historial: un libro puede estar eliminado
-     * logicamente y aun asi ser referenciado por prestamos previos.
+     * Bloqueo pesado sin filtrar el borrado logico: se usa en la <b>devolucion</b>,
+     * porque un libro dado de baja puede y debe seguir recibiendo ejemplares
+     * que salieron antes de la baja.
      */
-    Optional<Libro> findById(Long id);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select l from Libro l where l.id = :id")
+    Optional<Libro> findByIdWithLock(@Param("id") Long id);
 }

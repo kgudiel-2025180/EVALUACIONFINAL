@@ -41,8 +41,24 @@ public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
                                                                          PrestamoEstado estado,
                                                                          LocalDateTime fecha);
 
-    /** Historial completo de un usuario. */
-    Page<Prestamo> findByUsuarioIdOrderByFechaPrestamoDesc(Long usuarioId, Pageable pageable);
+    /**
+     * Historial completo de un usuario.
+     *
+     * <p>JOIN FETCH sobre las dos relaciones {@code ManyToOne}: sin el, el mapeo a
+     * DTO dispararia una consulta por fila (N+1), que bajo carga concurrente
+     * multiplica el uso de conexiones del pool. Al ser relaciones {@code ToOne},
+     * el fetch join no duplica filas y la paginacion se resuelve en SQL.</p>
+     *
+     * <p>El orden se aplica desde el {@code Pageable}: Hibernate y Spring Data
+     * generan entonces la consulta de conteo sin clausula ORDER BY.</p>
+     */
+    @Query("""
+            select p from Prestamo p
+            join fetch p.usuario u
+            join fetch p.libro l
+            where u.id = :usuarioId
+            """)
+    Page<Prestamo> findHistorialByUsuario(@Param("usuarioId") Long usuarioId, Pageable pageable);
 
     /** Prestamos abiertos de un usuario. */
     List<Prestamo> findByUsuarioIdAndEstadoInOrderByFechaPrestamoDesc(Long usuarioId,
@@ -54,6 +70,8 @@ public interface PrestamoRepository extends JpaRepository<Prestamo, Long> {
      */
     @Query("""
             select p from Prestamo p
+            join fetch p.usuario u
+            join fetch p.libro l
             where p.estado <> :devuelto
               and p.fechaDevolucionEsperada < :ahora
             """)

@@ -3,12 +3,12 @@ package com.Evalucion.Kenny_EVAFINAL.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.data.mapping.PropertyReferenceException;
 
 import java.util.List;
 
@@ -65,6 +66,27 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         log.warn("Acceso denegado en {}: {}", request.getRequestURI(), ex.getMessage());
         return responder(HttpStatus.FORBIDDEN, "FORBIDDEN", "No tiene permisos para realizar esta operacion", request);
+    }
+
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<ApiError> handleLocking(ConcurrencyFailureException ex, HttpServletRequest request) {
+        // Bajo carga concurrente, dos peticiones pueden competir por el mismo libro.
+        // En lugar de fallar con 500, se responde 409 y el cliente reintenta.
+        log.warn("Conflicto de concurrencia en {}: {}", request.getRequestURI(), ex.getMessage());
+        return responder(HttpStatus.CONFLICT, "CONCURRENT_MODIFICATION",
+                "El recurso esta siendo modificado por otra operacion. Intente de nuevo en unos segundos.", request);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        log.warn("Argumento invalido en {}: {}", request.getRequestURI(), ex.getMessage());
+        return responder(HttpStatus.BAD_REQUEST, "INVALID_ARGUMENT", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiError> handleBadSort(PropertyReferenceException ex, HttpServletRequest request) {
+        return responder(HttpStatus.BAD_REQUEST, "INVALID_SORT",
+                "El campo de ordenamiento no existe: " + ex.getPropertyName(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
