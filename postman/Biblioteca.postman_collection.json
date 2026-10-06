@@ -1,0 +1,550 @@
+{
+  "info": {
+    "name": "Sistema de Gestion de Biblioteca Universitaria",
+    "description": "API REST de la biblioteca universitaria. Flujo recomendado: iniciar sesion con el rol que quieras probar (el token se guarda automaticamente en la variable `token`), luego ejecutar las demas solicitudes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticacion",
+      "item": [
+        {
+          "name": "POST /auth/register (lector)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Estudiante Nuevo\",\n  \"email\": \"estudiante1@kinal.edu.gt\",\n  \"password\": \"Secreta123!\"\n}"
+            },
+            "description": "Endpoint publico. El rol SIEMPRE queda en LECTOR y el estado en ACTIVO, aunque el payload incluya `rol` o `estado`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 creado', () => pm.response.to.have.status(201));",
+                  "pm.test('rol forzado a LECTOR', () => pm.expect(pm.response.json().data.rol).to.eql('LECTOR'));",
+                  "pm.test('sin contrasena en la respuesta', () => pm.expect(pm.response.json().data).to.not.have.property('password'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@kinal.edu.gt\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "description": "Guarda el token en la variable `token` para el resto de la coleccion."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.test('token presente', () => pm.expect(pm.response.json().data.token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('token', pm.response.json().data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (BIBLIOTECARIO)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"bibliotecario@kinal.edu.gt\",\n  \"password\": \"Biblio123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (LECTOR)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lector@kinal.edu.gt\",\n  \"password\": \"Lector123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token', pm.response.json().data.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /auth/login (password incorrecta) -> 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@kinal.edu.gt\",\n  \"password\": \"clave-mala\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('401 credenciales invalidas', () => pm.response.to.have.status(401));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Catalogo de libros",
+      "item": [
+        {
+          "name": "GET /libros (listado paginado con filtros)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/libros?page=0&size=10&titulo=&categoria=&sort=titulo,asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["libros"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" },
+                { "key": "titulo", "value": "", "description": "busqueda parcial, sin distincion de mayusculas" },
+                { "key": "categoria", "value": "", "description": "coincidencia exacta, sin distincion de mayusculas" },
+                { "key": "sort", "value": "titulo,asc" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.test('envoltorio estandar', () => { const b = pm.response.json(); pm.expect(b).to.have.property('success', true); pm.expect(b.data).to.have.property('contenido'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /libros/{id}",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/libros/1", "host": ["{{baseUrl}}"], "path": ["libros", "1"] }
+          }
+        },
+        {
+          "name": "POST /libros -> 201 (solo ADMIN)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/libros", "host": ["{{baseUrl}}"], "path": ["libros"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"978-84-9999-0001\",\n  \"titulo\": \"Libro de ejemplo\",\n  \"autor\": \"Autor de ejemplo\",\n  \"categoria\": \"Ficcion\",\n  \"stockTotal\": 5,\n  \"stockDisponible\": 5\n}"
+            },
+            "description": "Usa el token de ADMIN. Con token de LECTOR o BIBLIOTECARIO responde 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 creado', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('libroId', pm.response.json().data.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /libros con stock incoherente -> 400 (REGLA 8)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/libros", "host": ["{{baseUrl}}"], "path": ["libros"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"978-84-9999-0002\",\n  \"titulo\": \"Stock invalido\",\n  \"autor\": \"Autor\",\n  \"categoria\": \"Ficcion\",\n  \"stockTotal\": 2,\n  \"stockDisponible\": 9\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('400 regla de negocio', () => pm.response.to.have.status(400));",
+                  "pm.test('mensaje de stock', () => pm.expect(pm.response.json().message).to.eql('El stock disponible no puede superar el stock total'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /libros/{id} -> 200 (solo ADMIN)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/libros/1", "host": ["{{baseUrl}}"], "path": ["libros", "1"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isbn\": \"978-84-9999-0001\",\n  \"titulo\": \"Titulo actualizado\",\n  \"autor\": \"Autor actualizado\",\n  \"categoria\": \"Ficcion\",\n  \"stockTotal\": 6,\n  \"stockDisponible\": 5\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE /libros/{id} -> 204 (solo ADMIN)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/libros/1", "host": ["{{baseUrl}}"], "path": ["libros", "1"] },
+            "description": "Eliminacion logica: el libro desaparece del catalogo pero el historial de prestamos se conserva."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('204 sin contenido', () => pm.response.to.have.status(204));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /libros/{id} inexistente -> 404",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/libros/999999", "host": ["{{baseUrl}}"], "path": ["libros", "999999"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Prestamos y devoluciones",
+      "item": [
+        {
+          "name": "POST /prestamos -> 201 (ADMIN o BIBLIOTECARIO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/prestamos", "host": ["{{baseUrl}}"], "path": ["prestamos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuarioId\": 3,\n  \"libroId\": 1\n}"
+            },
+            "description": "El plazo de 14 dias lo calcula el backend. Descontara 1 unidad de stockDisponible."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 prestamo creado', () => pm.response.to.have.status(201));",
+                  "pm.test('estado ACTIVO', () => pm.expect(pm.response.json().data.estado).to.eql('ACTIVO'));",
+                  "pm.collectionVariables.set('prestamoId', pm.response.json().data.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /prestamos sin stock -> 400 (REGLA 1)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/prestamos", "host": ["{{baseUrl}}"], "path": ["prestamos"] },
+            "body": { "mode": "raw", "raw": "{\n  \"usuarioId\": 3,\n  \"libroId\": 1\n}" },
+            "description": "Reemplaza libroId por uno con stockDisponible = 0."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('400 sin ejemplares', () => pm.response.to.have.status(400));",
+                  "pm.test('mensaje correcto', () => pm.expect(pm.response.json().message).to.eql('El libro no tiene ejemplares disponibles'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /prestamos usuario inexistente -> 404 (REGLA 10)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/prestamos", "host": ["{{baseUrl}}"], "path": ["prestamos"] },
+            "body": { "mode": "raw", "raw": "{\n  \"usuarioId\": 999999,\n  \"libroId\": 1\n}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('404 recurso no encontrado', () => pm.response.to.have.status(404));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /prestamos/{id}/devolucion -> 200 (REGLA 7)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/prestamos/1/devolucion", "host": ["{{baseUrl}}"], "path": ["prestamos", "1", "devolucion"] },
+            "description": "Incrementa stockDisponible en 1."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 devolucion registrada', () => pm.response.to.have.status(200));",
+                  "pm.test('estado DEVUELTO', () => pm.expect(pm.response.json().data.estado).to.eql('DEVUELTO'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH devolucion repetida -> 409 (REGLA 12)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/prestamos/1/devolucion", "host": ["{{baseUrl}}"], "path": ["prestamos", "1", "devolucion"] },
+            "description": "Ejecuta dos veces la devolucion: la segunda debe responder 409."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('409 conflicto', () => pm.response.to.have.status(409));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /prestamos/mis-prestamos (LECTOR)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/prestamos/mis-prestamos?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["prestamos", "mis-prestamos"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "La identidad sale SIEMPRE del token, no de un parametro. Con token de ADMIN o BIBLIOTECARIO responde 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.test('solo prestamos propios', () => pm.expect(pm.response.json().data.contenido.every(p => p.usuarioEmail === pm.response.json().data.contenido[0].usuarioEmail)));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /prestamos/atrasados (ADMIN o BIBLIOTECARIO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/prestamos/atrasados?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["prestamos", "atrasados"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Detecta los vencidos en la capa de negocio y deja su estado persistido como ATRASADO. Con token de LECTOR responde 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 ok', () => pm.response.to.have.status(200));",
+                  "pm.test('incluye el prestamo de ejemplo atrasado', () => pm.expect(pm.response.json().data.totalElementos).to.be.at.least(1));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /prestamos con lector sancionado -> 400 (REGLA 5)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/prestamos", "host": ["{{baseUrl}}"], "path": ["prestamos"] },
+            "body": { "mode": "raw", "raw": "{\n  \"usuarioId\": 4,\n  \"libroId\": 2\n}" },
+            "description": "El usuario 4 (lector-atrasos@kinal.edu.gt) tiene un prestamo vencido: al intentar prestar queda SANCIONADO (REGLA 4) y se rechaza. Un segundo intento respondera el mensaje de la REGLA 5."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('400 sancionado', () => pm.response.to.have.status(400));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Control de acceso (401 / 403)",
+      "item": [
+        {
+          "name": "GET /libros sin token -> 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/libros", "host": ["{{baseUrl}}"], "path": ["libros"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('401 no autenticado', () => pm.response.to.have.status(401));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /libros con token de LECTOR -> 403",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/libros", "host": ["{{baseUrl}}"], "path": ["libros"] },
+            "body": { "mode": "raw", "raw": "{\n  \"isbn\": \"978-84-9999-0009\",\n  \"titulo\": \"No debe crearse\",\n  \"autor\": \"Autor\",\n  \"categoria\": \"Ficcion\",\n  \"stockTotal\": 1,\n  \"stockDisponible\": 1\n}" },
+            "description": "Inicia sesion primero con el LECTOR para obtener su token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('403 prohibido', () => pm.response.to.have.status(403));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /prestamos/atrasados con token de LECTOR -> 403",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/prestamos/atrasados", "host": ["{{baseUrl}}"], "path": ["prestamos", "atrasados"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('403 prohibido', () => pm.response.to.have.status(403));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /libros con token manipulado -> 401",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "token-falso-manipulado" }] },
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/libros", "host": ["{{baseUrl}}"], "path": ["libros"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('401 token invalido', () => pm.response.to.have.status(401));"],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
