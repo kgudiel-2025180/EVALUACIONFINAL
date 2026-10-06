@@ -2,20 +2,26 @@ spring:
   application:
     name: Kenny-EVAFINAL
 
+  # Perfil 'local' activo por defecto: carga application-local.yml, que contiene
+  # las credenciales reales de la base de datos. Ese archivo esta en .gitignore.
+  # Para desarrollo con H2 usar el perfil 'test' (ver src/test/resources).
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
   # ------------------------------------------------------------------
-  # Datos: PostgreSQL (sobrescribibles por variables de entorno)
+  # Datos: MySQL (sobrescribibles por variables de entorno)
   # ------------------------------------------------------------------
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:biblioteca}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:biblioteca_in5am}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci
+    username: ${DB_USERNAME:IN5AM}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: BibliotecaHikari
       # Dimensionado para soportar mas de 100 peticiones concurrentes: cuando no
       # hay conexion libre la peticion espera (connection-timeout) en lugar de
       # fallar de inmediato. Si se supera la carga sostenida, conviene subir el
-      # pool junto con max_connections de PostgreSQL.
+      # pool junto con max_connections de MySQL.
       maximum-pool-size: ${DB_POOL_MAX:30}
       minimum-idle: 5
       connection-timeout: 10000
@@ -63,7 +69,9 @@ spring:
       enabled: true
 
 server:
-  port: ${SERVER_PORT:8080}
+
+  # Para usar otro puerto: SERVER_PORT=9090
+  port: ${SERVER_PORT:8181}
   shutdown: graceful
   tomcat:
     # Valores usados cuando los hilos virtuales estan desactivados.
@@ -88,3 +96,4 @@ logging:
   level:
     root: INFO
     com.Evalucion.Kenny_EVAFINAL: INFO
+

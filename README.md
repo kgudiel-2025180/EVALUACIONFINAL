@@ -6,7 +6,7 @@ Postman incluida en [`postman/Biblioteca.postman_collection.json`](postman/Bibli
 
 | | |
 |---|---|
-| **Stack** | Java 17 · Spring Boot 3.5 · Spring Security · JPA/Hibernate · PostgreSQL · Maven |
+| **Stack** | Java 17 · Spring Boot 3.5 · Spring Security · JPA/Hibernate · **MySQL 8.0** · Maven |
 | **Autenticacion** | JWT (HS256), API stateless, sin sesiones |
 | **Pruebas** | 70 pruebas JUnit 5 + MockMvc + prueba de saturacion real contra Tomcat |
 
@@ -15,7 +15,7 @@ Postman incluida en [`postman/Biblioteca.postman_collection.json`](postman/Bibli
 ## 1. Requisitos
 
 - JDK 17 o superior (probado con JDK 21)
-- PostgreSQL 14 o superior
+- MySQL 8.0 o superior
 - Maven Wrapper incluido (`./mvnw`) — no requiere Maven instalado
 
 ---
@@ -25,8 +25,12 @@ Postman incluida en [`postman/Biblioteca.postman_collection.json`](postman/Bibli
 ### 2.1 Base de datos
 
 ```bash
-psql -U postgres -c "CREATE DATABASE biblioteca;"
+mysql -u IN5AM -e "CREATE DATABASE IF NOT EXISTS biblioteca_in5am CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
+
+> **Obligatorio:** el usuario `IN5AM` tiene el grant `ALL PRIVILEGES ON \`%_in5am\`.*`,
+> por lo que la base de datos **debe terminar en `_in5am`** o MySQL rechazara la
+> creacion con `ERROR 1044 (42000): Access denied`.
 
 El esquema **no lo genera Hibernate**: lo define
 [`src/main/resources/db/schema.sql`](src/main/resources/db/schema.sql) y se ejecuta
@@ -35,17 +39,21 @@ automaticamente al arrancar, junto con la carga inicial
 idempotentes (`IF NOT EXISTS` / `WHERE NOT EXISTS`), por lo que el servicio puede
 reiniciarse tantas veces como se quiera sobre la misma base.
 
+> MySQL 8.0.16+ **aplica de verdad** las restricciones `CHECK` del esquema
+> (roles, estados e invariantes de stock). En versiones anteriores se ignorarian,
+> pero la capa Java (`StockValidator`) sigue aplicando las mismas reglas.
+
 ### 2.2 Variables de entorno
 
 Todas son opcionales en desarrollo local; en produccion deben definirse.
 
 | Variable | Por defecto | Descripcion |
 |---|---|---|
-| `DB_HOST` | `localhost` | Host de PostgreSQL |
-| `DB_PORT` | `5432` | Puerto |
-| `DB_NAME` | `biblioteca` | Base de datos |
-| `DB_USERNAME` | `postgres` | Usuario |
-| `DB_PASSWORD` | `postgres` | Contrasena |
+| `DB_HOST` | `localhost` | Host de MySQL |
+| `DB_PORT` | `3306` | Puerto |
+| `DB_NAME` | `biblioteca_in5am` | Base de datos (debe terminar en `_in5am`) |
+| `DB_USERNAME` | `IN5AM` | Usuario |
+| `DB_PASSWORD` | *(vacia)* | Contrasena |
 | `DB_POOL_MAX` | `30` | Tamano maximo del pool HikariCP |
 | `JWT_SECRET` | *(solo desarrollo)* | Secreto HMAC de **al menos 32 bytes** |
 | `JWT_EXPIRATION_MS` | `86400000` | Vigencia del token (24 h) |
@@ -55,8 +63,41 @@ Todas son opcionales en desarrollo local; en produccion deben definirse.
 ### 2.3 Ejecutar
 
 ```bash
-./mvnw spring-boot:run          # Windows: .\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
+
+Ya verificado de extremo a extremo contra **MySQL 8.0.34** real: login, catalogo con
+filtros, alta de libro, prestamo con plazo de 14 dias, descuento y devolucion de
+stock, devolucion duplicada (409), atrasos, sancion automatica (REGLA 4/5),
+autorizacion por rol (401/403) y baja logica.
+
+#### Arrancar desde IntelliJ IDEA
+
+**No hace falta definir ninguna variable de entorno.** `application.yml` activa el
+perfil `local`, que carga `application-local.yml` con las credenciales reales de
+MySQL. Solo asegurate de que ese archivo exista en `src/main/resources/`:
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:biblioteca_in5am}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci
+    username: ${DB_USERNAME:IN5AM}
+    password: ${DB_PASSWORD:_odmon5Am}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+```
+
+> `application-local.yml` esta en `.gitignore` **a proposito**: contiene la
+> contrasena y no debe subirse al repositorio. Si clonas el proyecto en otra
+> maquina, crea ese archivo con tus credenciales.
+
+Si aun asi ves `Access denied for user 'IN5AM'@'localhost' (using password: NO)`,
+la causa es que en **Run → Edit Configurations → Environment variables** existe un
+`DB_PASSWORD` **definido pero vacio**: en Spring Boot una variable presente pero
+vacía **sobreescribe** el valor por defecto de la propiedad. Borra esa entrada o
+asignale el valor correcto.
+
+Si el puerto 8080 esta ocupado, define `SERVER_PORT=8181` en las mismas variables
+de entorno.
 
 ### 2.4 Ejecutar las pruebas
 
@@ -64,7 +105,7 @@ Todas son opcionales en desarrollo local; en produccion deben definirse.
 ./mvnw test
 ```
 
-Los tests arrancan el contexto completo sobre **H2 en modo PostgreSQL** y ejecutan
+Los tests arrancan el contexto completo sobre **H2 en modo MySQL** y ejecutan
 `schema.sql` y `data.sql` tal cual: si el esquema o la carga inicial fallaran, las
 pruebas fallarian antes de llegar a la logica de negocio.
 
@@ -185,8 +226,7 @@ Medidas que lo hacen posible:
 |---|---|
 | Hilos | `spring.threads.virtual.enabled: true` (hilos virtuales Java 21) |
 | Tomcat | cola de `accept-count: 100`, `max-connections: 10000` |
-| Conexiones | HikariCP con pool de 30 y `connection-timeout: 10000` — bajo saturacion la peticion **espera** en lugar de fallar |
-| Concurrencia | `SELECT ... FOR UPDATE` (`PESSIMISTIC_WRITE`) sobre el libro al prestar y al devolver: serializa el acceso al stock |
+| Conexiones | HikariCP con pool de 30 y `connection-timeout: 10000` — bajo saturacion la peticion **espera** en lugar de fallar. Si se supera la carga sostenida, conviene subir el pool junto con `max_connections` de MySQL || Concurrencia | `SELECT ... FOR UPDATE` (`PESSIMISTIC_WRITE`) sobre el libro al prestar y al devolver: serializa el acceso al stock |
 | Defensa | `@Version` en `Libro` (bloqueo optimista) como segunda barrera |
 | N+1 | `JOIN FETCH` de `usuario` y `libro` en el historial y en atrasados: una consulta por pagina, no una por fila |
 | Sesiones | `open-in-view: false`: la sesion se cierra al terminar el servicio |
@@ -238,6 +278,9 @@ src/test/
   limita el tamano maximo a 100 registros.
 - **ISBN unico**: comprobado en Java (409) y garantizado por restriccion en SQL.
 - **BCrypt** para todas las contrasenas; jamas se devuelve una contrasena en la API.
+- **MySQL 8.0** como motor de persistencia: `InnoDB` con `utf8mb4`, claves foraneas
+  con `ON DELETE RESTRICT` y restricciones `CHECK` que refuerzan las reglas de
+  negocio en la propia base de datos.
 
 ---
 
