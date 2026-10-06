@@ -1,0 +1,52 @@
+# =====================================================================
+# Configuracion de PRUEBAS
+#
+# H2 en memoria con modo de compatibilidad PostgreSQL para que los scripts
+# db/schema.sql y db/data.sql se ejecuten tal cual en los tests: si el
+# esquema o la carga inicial fallaran, las pruebas fallarian antes de
+# llegar a la logica de negocio.
+# =====================================================================
+spring:
+  datasource:
+    url: jdbc:h2:mem:biblioteca_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+    hikari:
+      pool-name: TestHikari
+      maximum-pool-size: 8
+      minimum-idle: 1
+      connection-timeout: 10000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        default_batch_fetch_size: 50
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+      encoding: UTF-8
+      continue-on-error: false
+
+  threads:
+    virtual:
+      enabled: false
+
+server:
+  port: 0
+
+jwt:
+  secret: clave-de-prueba-suficientemente-larga-32-bytes
+  expiration: 3600000
+  issuer: biblioteca-universitaria-test
+
+logging:
+  level:
+    root: WARN
+    com.Evalucion.Kenny_EVAFINAL: INFO
