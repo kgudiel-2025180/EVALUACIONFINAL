@@ -25,8 +25,12 @@ Postman incluida en [`postman/Biblioteca.postman_collection.json`](postman/Bibli
 ### 2.1 Base de datos
 
 ```bash
-mysql -u IN5AM -e "CREATE DATABASE IF NOT EXISTS biblioteca CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u IN5AM -e "CREATE DATABASE IF NOT EXISTS biblioteca_in5am CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
+
+> **Obligatorio:** el usuario `IN5AM` tiene el grant `ALL PRIVILEGES ON \`%_in5am\`.*`,
+> por lo que la base de datos **debe terminar en `_in5am`** o MySQL rechazara la
+> creacion con `ERROR 1044 (42000): Access denied`.
 
 El esquema **no lo genera Hibernate**: lo define
 [`src/main/resources/db/schema.sql`](src/main/resources/db/schema.sql) y se ejecuta
@@ -47,7 +51,7 @@ Todas son opcionales en desarrollo local; en produccion deben definirse.
 |---|---|---|
 | `DB_HOST` | `localhost` | Host de MySQL |
 | `DB_PORT` | `3306` | Puerto |
-| `DB_NAME` | `biblioteca` | Base de datos |
+| `DB_NAME` | `biblioteca_in5am` | Base de datos (debe terminar en `_in5am`) |
 | `DB_USERNAME` | `IN5AM` | Usuario |
 | `DB_PASSWORD` | *(vacia)* | Contrasena |
 | `DB_POOL_MAX` | `30` | Tamano maximo del pool HikariCP |
@@ -59,8 +63,13 @@ Todas son opcionales en desarrollo local; en produccion deben definirse.
 ### 2.3 Ejecutar
 
 ```bash
-./mvnw spring-boot:run          # Windows: .\mvnw.cmd spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
+
+Ya verificado de extremo a extremo contra **MySQL 8.0.34** real: login, catalogo con
+filtros, alta de libro, prestamo con plazo de 14 dias, descuento y devolucion de
+stock, devolucion duplicada (409), atrasos, sancion automatica (REGLA 4/5),
+autorizacion por rol (401/403) y baja logica.
 
 ### 2.4 Ejecutar las pruebas
 
