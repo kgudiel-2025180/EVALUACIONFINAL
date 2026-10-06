@@ -69,7 +69,9 @@ spring:
       enabled: true
 
 server:
-  port: ${SERVER_PORT:8080}
+
+  # Para usar otro puerto: SERVER_PORT=9090
+  port: ${SERVER_PORT:8181}
   shutdown: graceful
   tomcat:
     # Valores usados cuando los hilos virtuales estan desactivados.
@@ -94,3 +96,4 @@ logging:
   level:
     root: INFO
     com.Evalucion.Kenny_EVAFINAL: INFO
+
