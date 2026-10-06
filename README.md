@@ -71,6 +71,25 @@ filtros, alta de libro, prestamo con plazo de 14 dias, descuento y devolucion de
 stock, devolucion duplicada (409), atrasos, sancion automatica (REGLA 4/5),
 autorizacion por rol (401/403) y baja logica.
 
+#### Arrancar desde IntelliJ IDEA
+
+Si ejecutas la aplicacion desde el IDE sin definir variables de entorno, la app usa
+los valores por defecto de `application.yml` — y `DB_PASSWORD` por defecto es **vacio**.
+Como el usuario `IN5AM` si tiene contrasena, MySQL rechaza la conexion con:
+
+```
+java.sql.SQLException: Access denied for user 'IN5AM'@'localhost' (using password: NO)
+```
+
+Para evitarlo: **Run → Edit Configurations… → `KennyEvafinalApplication` →
+Environment variables** y define:
+
+```
+DB_NAME=biblioteca_in5am;DB_PASSWORD=_odmon5Am;DB_USERNAME=IN5AM
+```
+
+Si el puerto 8080 esta ocupado, agrega ademas `SERVER_PORT=8181`.
+
 ### 2.4 Ejecutar las pruebas
 
 ```bash
