@@ -14,9 +14,9 @@ spring:
     password: ""
     hikari:
       pool-name: TestHikari
-      maximum-pool-size: 8
-      minimum-idle: 1
-      connection-timeout: 10000
+      maximum-pool-size: 16
+      minimum-idle: 2
+      connection-timeout: 15000
 
   jpa:
     open-in-view: false
@@ -36,7 +36,7 @@ spring:
 
   threads:
     virtual:
-      enabled: false
+      enabled: true
 
 server:
   port: 0
