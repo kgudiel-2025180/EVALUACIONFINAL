@@ -73,22 +73,31 @@ autorizacion por rol (401/403) y baja logica.
 
 #### Arrancar desde IntelliJ IDEA
 
-Si ejecutas la aplicacion desde el IDE sin definir variables de entorno, la app usa
-los valores por defecto de `application.yml` — y `DB_PASSWORD` por defecto es **vacio**.
-Como el usuario `IN5AM` si tiene contrasena, MySQL rechaza la conexion con:
+**No hace falta definir ninguna variable de entorno.** `application.yml` activa el
+perfil `local`, que carga `application-local.yml` con las credenciales reales de
+MySQL. Solo asegurate de que ese archivo exista en `src/main/resources/`:
 
-```
-java.sql.SQLException: Access denied for user 'IN5AM'@'localhost' (using password: NO)
-```
-
-Para evitarlo: **Run → Edit Configurations… → `KennyEvafinalApplication` →
-Environment variables** y define:
-
-```
-DB_NAME=biblioteca_in5am;DB_PASSWORD=_odmon5Am;DB_USERNAME=IN5AM
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:biblioteca_in5am}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci
+    username: ${DB_USERNAME:IN5AM}
+    password: ${DB_PASSWORD:_odmon5Am}
+    driver-class-name: com.mysql.cj.jdbc.Driver
 ```
 
-Si el puerto 8080 esta ocupado, agrega ademas `SERVER_PORT=8181`.
+> `application-local.yml` esta en `.gitignore` **a proposito**: contiene la
+> contrasena y no debe subirse al repositorio. Si clonas el proyecto en otra
+> maquina, crea ese archivo con tus credenciales.
+
+Si aun asi ves `Access denied for user 'IN5AM'@'localhost' (using password: NO)`,
+la causa es que en **Run → Edit Configurations → Environment variables** existe un
+`DB_PASSWORD` **definido pero vacio**: en Spring Boot una variable presente pero
+vacía **sobreescribe** el valor por defecto de la propiedad. Borra esa entrada o
+asignale el valor correcto.
+
+Si el puerto 8080 esta ocupado, define `SERVER_PORT=8181` en las mismas variables
+de entorno.
 
 ### 2.4 Ejecutar las pruebas
 
