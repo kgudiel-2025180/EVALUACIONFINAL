@@ -3,19 +3,19 @@ spring:
     name: Kenny-EVAFINAL
 
   # ------------------------------------------------------------------
-  # Datos: PostgreSQL (sobrescribibles por variables de entorno)
+  # Datos: MySQL (sobrescribibles por variables de entorno)
   # ------------------------------------------------------------------
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:biblioteca}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:biblioteca}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci
+    username: ${DB_USERNAME:IN5AM}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: BibliotecaHikari
       # Dimensionado para soportar mas de 100 peticiones concurrentes: cuando no
       # hay conexion libre la peticion espera (connection-timeout) en lugar de
       # fallar de inmediato. Si se supera la carga sostenida, conviene subir el
-      # pool junto con max_connections de PostgreSQL.
+      # pool junto con max_connections de MySQL.
       maximum-pool-size: ${DB_POOL_MAX:30}
       minimum-idle: 5
       connection-timeout: 10000

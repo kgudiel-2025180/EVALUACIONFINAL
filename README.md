@@ -6,7 +6,7 @@ Postman incluida en [`postman/Biblioteca.postman_collection.json`](postman/Bibli
 
 | | |
 |---|---|
-| **Stack** | Java 17 · Spring Boot 3.5 · Spring Security · JPA/Hibernate · PostgreSQL · Maven |
+| **Stack** | Java 17 · Spring Boot 3.5 · Spring Security · JPA/Hibernate · **MySQL 8.0** · Maven |
 | **Autenticacion** | JWT (HS256), API stateless, sin sesiones |
 | **Pruebas** | 70 pruebas JUnit 5 + MockMvc + prueba de saturacion real contra Tomcat |
 
@@ -15,7 +15,7 @@ Postman incluida en [`postman/Biblioteca.postman_collection.json`](postman/Bibli
 ## 1. Requisitos
 
 - JDK 17 o superior (probado con JDK 21)
-- PostgreSQL 14 o superior
+- MySQL 8.0 o superior
 - Maven Wrapper incluido (`./mvnw`) — no requiere Maven instalado
 
 ---
@@ -25,7 +25,7 @@ Postman incluida en [`postman/Biblioteca.postman_collection.json`](postman/Bibli
 ### 2.1 Base de datos
 
 ```bash
-psql -U postgres -c "CREATE DATABASE biblioteca;"
+mysql -u IN5AM -e "CREATE DATABASE IF NOT EXISTS biblioteca CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
 El esquema **no lo genera Hibernate**: lo define
@@ -35,17 +35,21 @@ automaticamente al arrancar, junto con la carga inicial
 idempotentes (`IF NOT EXISTS` / `WHERE NOT EXISTS`), por lo que el servicio puede
 reiniciarse tantas veces como se quiera sobre la misma base.
 
+> MySQL 8.0.16+ **aplica de verdad** las restricciones `CHECK` del esquema
+> (roles, estados e invariantes de stock). En versiones anteriores se ignorarian,
+> pero la capa Java (`StockValidator`) sigue aplicando las mismas reglas.
+
 ### 2.2 Variables de entorno
 
 Todas son opcionales en desarrollo local; en produccion deben definirse.
 
 | Variable | Por defecto | Descripcion |
 |---|---|---|
-| `DB_HOST` | `localhost` | Host de PostgreSQL |
-| `DB_PORT` | `5432` | Puerto |
+| `DB_HOST` | `localhost` | Host de MySQL |
+| `DB_PORT` | `3306` | Puerto |
 | `DB_NAME` | `biblioteca` | Base de datos |
-| `DB_USERNAME` | `postgres` | Usuario |
-| `DB_PASSWORD` | `postgres` | Contrasena |
+| `DB_USERNAME` | `IN5AM` | Usuario |
+| `DB_PASSWORD` | *(vacia)* | Contrasena |
 | `DB_POOL_MAX` | `30` | Tamano maximo del pool HikariCP |
 | `JWT_SECRET` | *(solo desarrollo)* | Secreto HMAC de **al menos 32 bytes** |
 | `JWT_EXPIRATION_MS` | `86400000` | Vigencia del token (24 h) |
@@ -64,7 +68,7 @@ Todas son opcionales en desarrollo local; en produccion deben definirse.
 ./mvnw test
 ```
 
-Los tests arrancan el contexto completo sobre **H2 en modo PostgreSQL** y ejecutan
+Los tests arrancan el contexto completo sobre **H2 en modo MySQL** y ejecutan
 `schema.sql` y `data.sql` tal cual: si el esquema o la carga inicial fallaran, las
 pruebas fallarian antes de llegar a la logica de negocio.
 
@@ -185,8 +189,7 @@ Medidas que lo hacen posible:
 |---|---|
 | Hilos | `spring.threads.virtual.enabled: true` (hilos virtuales Java 21) |
 | Tomcat | cola de `accept-count: 100`, `max-connections: 10000` |
-| Conexiones | HikariCP con pool de 30 y `connection-timeout: 10000` — bajo saturacion la peticion **espera** en lugar de fallar |
-| Concurrencia | `SELECT ... FOR UPDATE` (`PESSIMISTIC_WRITE`) sobre el libro al prestar y al devolver: serializa el acceso al stock |
+| Conexiones | HikariCP con pool de 30 y `connection-timeout: 10000` — bajo saturacion la peticion **espera** en lugar de fallar. Si se supera la carga sostenida, conviene subir el pool junto con `max_connections` de MySQL || Concurrencia | `SELECT ... FOR UPDATE` (`PESSIMISTIC_WRITE`) sobre el libro al prestar y al devolver: serializa el acceso al stock |
 | Defensa | `@Version` en `Libro` (bloqueo optimista) como segunda barrera |
 | N+1 | `JOIN FETCH` de `usuario` y `libro` en el historial y en atrasados: una consulta por pagina, no una por fila |
 | Sesiones | `open-in-view: false`: la sesion se cierra al terminar el servicio |
@@ -238,6 +241,9 @@ src/test/
   limita el tamano maximo a 100 registros.
 - **ISBN unico**: comprobado en Java (409) y garantizado por restriccion en SQL.
 - **BCrypt** para todas las contrasenas; jamas se devuelve una contrasena en la API.
+- **MySQL 8.0** como motor de persistencia: `InnoDB` con `utf8mb4`, claves foraneas
+  con `ON DELETE RESTRICT` y restricciones `CHECK` que refuerzan las reglas de
+  negocio en la propia base de datos.
 
 ---
 

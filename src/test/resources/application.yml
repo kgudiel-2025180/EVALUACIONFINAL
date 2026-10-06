@@ -1,14 +1,14 @@
 # =====================================================================
 # Configuracion de PRUEBAS
 #
-# H2 en memoria con modo de compatibilidad PostgreSQL para que los scripts
+# H2 en memoria con modo de compatibilidad MySQL para que los scripts
 # db/schema.sql y db/data.sql se ejecuten tal cual en los tests: si el
 # esquema o la carga inicial fallaran, las pruebas fallarian antes de
 # llegar a la logica de negocio.
 # =====================================================================
 spring:
   datasource:
-    url: jdbc:h2:mem:biblioteca_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    url: jdbc:h2:mem:biblioteca_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
